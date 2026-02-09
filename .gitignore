@@ -1,0 +1,38 @@
+# =========================
+# Verilog / FPGA / HDL files
+# =========================
+
+# Generated files / build outputs
+*.bin
+*.rpt
+*.jou
+*.log
+*.wdb
+*.lso
+*.ngc
+*.edf
+*.bit
+*.svf
+*.txt
+
+# Simulation directories
+sim/
+build/
+output/
+waveforms/
+results/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor files
+*.vscode/
+*.idea/
+*.sublime-project
+*.sublime-workspace
