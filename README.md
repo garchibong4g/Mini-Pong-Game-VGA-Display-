@@ -1,96 +1,113 @@
-# 🎮 Mini Pong Game – FPGA Project
+# Two-Player Pong on FPGA (Basys 3 / Artix-7)
 
-This repository contains the **Verilog HDL source code, testbenches, and documentation** for a **real-time Pong game** implemented on a **Basys 3 FPGA board**. The project demonstrates **digital logic design, finite state machines (FSMs), and VGA graphics output** for embedded hardware systems.
+A fully playable two-player Pong game written in Verilog for the Digilent Basys 3
+(Xilinx Artix-7). The game renders to a monitor over VGA at 640×480 @ 60 Hz, with
+two players controlling paddles via the on-board push buttons.
 
----
+> Game logic adapted from [Nandland's open-source Project 10](https://nandland.com)
+> and ported to the Basys 3 (Artix-7) with MMCM-based clocking, 4-bit-per-channel
+> color mapping, custom constraints, and hardware bring-up.
 
-## 📌 Project Overview
+## Demo
 
-The Mini Pong Game integrates **digital logic**, **FSM-based control**, and **VGA timing management**. It features a paddle and ball controlled by FSMs, collision detection logic, and outputs a **640 × 480 @ 60Hz VGA display**. The design is modular and simulation-ready for hardware verification.
+*(Add a photo/GIF of the board driving a monitor here.)*
 
----
+## Features
 
-## 🛠️ Design
+- 640×480 @ 60 Hz VGA output
+- 25 MHz pixel clock generated from the 100 MHz system clock via an MMCM
+  (Vivado Clocking Wizard)
+- Two-player paddle control with on-board push buttons
+- Ball physics with wall and paddle reflection
+- Finite state machine for game flow and scoring
+- Debounced button inputs
+- Single clock domain (no CDC) across the entire video + game pipeline
 
-- Paddle and ball **FSMs** for movement and collision handling  
-- **VGA synchronization** for horizontal and vertical scan lines  
-- **Clock division** to generate a stable pixel clock  
-- Modular design for **easy simulation and hardware testing**
+## Hardware
 
----
+| | |
+|---|---|
+| Board | Digilent Basys 3 |
+| FPGA | Xilinx Artix-7 `xc7a35tcpg236-1` |
+| System clock | 100 MHz (W5) |
+| Pixel clock | 25 MHz (MMCM) |
+| Display | 640×480 @ 60 Hz, 12-bit color over VGA |
+| Toolchain | Xilinx Vivado 2025.2 |
 
-## ⚙️ Hardware Components
+## Controls
 
-- 🖥️ **Basys 3 FPGA Board** (Xilinx Artix-7)  
-- 🟢 4-bit VGA output (RGB)  
-- ⏹️ Push-button inputs for paddle movement  
-- ⏱️ On-board 100 MHz system clock  
+| Button | Action |
+|--------|--------|
+| BTNC (center) | Start round |
+| BTNU / BTND | Player 1 paddle up / down |
+| BTNL / BTNR | Player 2 paddle up / down |
 
----
+## Architecture
 
-## 💻 Software
+```
+Project10_Pong_Top        top level: I/O, clocking, color mapping
+├── clk_wiz_0             MMCM, 100 MHz -> 25 MHz pixel clock
+├── VGA_Sync_Pulses       HSync / VSync generation
+├── Debounce_Switch x5    button debouncing
+├── Pong_Top              game core
+│   ├── Sync_To_Count     row/col counters aligned to sync
+│   ├── Pong_Paddle_Ctrl  paddle position + draw (x2)
+│   ├── Pong_Ball_Ctrl    ball position, bounce, draw
+│   └── FSM               IDLE / RUNNING / P1_WINS / P2_WINS / CLEANUP
+└── VGA_Sync_Porch        front/back porch + video pipeline alignment
+```
 
-- Verilog HDL for:
-  - Paddle and ball FSMs
-  - Collision detection logic
-  - VGA sync generation
-- Testbenches for simulation and verification
-- Clock division logic for pixel-level timing
+The pixel counters are divided by 16 to form a 40×30 tile grid; all game objects
+operate in this coordinate space. Each object outputs a "draw" signal; these are
+OR-ed to decide whether a pixel is lit, then mapped to the Basys 3's 4-bit-per-
+channel VGA pins.
 
----
+## Repository Layout
 
-## 📚 Libraries/Tools Used
+```
+src/
+  Project10_Pong_Top.v    top level
+  Pong_Top.v              game core + FSM
+  Pong_Paddle_Ctrl.v      paddle control
+  Pong_Ball_Ctrl.v        ball control
+  Debounce_Switch.v       button debouncer
+  VGA_Sync_Pulses.v       sync generation
+  Sync_To_Count.v         sync -> row/col counters
+  VGA_Sync_Porch.v        porch timing + video alignment
+constraints/
+  pong.xdc                Basys 3 pin + clock constraints
+ip/
+  clk_wiz_0               Clocking Wizard (MMCM) IP
+docs/
+  Pong_FPGA_Project_Documentation.md   full design writeup
+```
 
-- `Vivado` – FPGA synthesis and implementation  
-- `ModelSim` – Simulation and waveform analysis  
-- `Basys 3 Reference Manual` – Hardware timing specifications  
+## Build & Run
 
----
+1. Open the project in Vivado 2025.2 (target `xc7a35tcpg236-1`).
+2. Generate the `clk_wiz_0` IP output products if not already present
+   (Generate Output Products → Global).
+3. Set `Project10_Pong_Top` as the top module.
+4. Run synthesis → implementation → **Generate Bitstream**.
+5. Open Hardware Manager → Open Target → Auto Connect → Program Device.
+6. Connect a monitor to the VGA port, press the center button to start, and play.
 
-## 📋 Features
+## Notes
 
-- 🕹️ Real-time paddle and ball control  
-- 🔁 FSM-based movement and collision logic  
-- 🖼️ VGA 640 × 480 display output  
-- 🛠️ Modular and reusable Verilog code  
-- ⚡ Smooth gameplay with synchronized clock division  
+- The pixel clock is generated with an MMCM rather than a counter-based divider,
+  placing it on dedicated clock-management hardware and global routing for clean
+  timing — the correct approach for a real design.
+- The VGA timing front end (sync pulses, sync-to-count, porch) is modular and is
+  reused from a companion VGA test-pattern project.
 
----
+## Possible Improvements
 
-## 📦 Hardware Requirements
+- Seven-segment scorekeeping (P1 left digits, P2 right digits)
+- Per-object color and UART-selectable color palettes
+- Block RAM framebuffer for a larger playfield
+- Variable bounce angle based on paddle contact point
 
-- Basys 3 FPGA board  
-- VGA monitor  
-- Push-buttons for input  
-- Power supply for FPGA  
+## License / Attribution
 
----
-
-## 🖥️ Software Requirements
-
-- Xilinx Vivado (or compatible FPGA IDE)  
-- ModelSim or Vivado simulator  
-- Text editor for Verilog coding  
-
----
-
-## 🚀 Future Improvements
-
-- Add **scoring and game reset functionality**  
-- Implement **sound effects on collisions**  
-- Expand to **multi-paddle or AI-controlled gameplay**  
-- Optimize FSMs for **lower resource utilization**
-
----
-
-## 🙏 Acknowledgements
-
-- Digilent Basys 3 documentation  
-- FPGA design tutorials and Verilog guides  
-- Team members and mentors who provided guidance  
-
----
-
-## ✍️ Authors
-
-Developed as part of an **Electrical Engineering FPGA Project**.
+Game logic adapted from Nandland's open-source FPGA course material (Project 10).
+Basys 3 port, MMCM clocking, constraints, and hardware integration by the author.
